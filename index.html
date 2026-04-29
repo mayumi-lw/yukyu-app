@@ -331,10 +331,17 @@
     <input type="hidden" id="apply-type" value="1">
   </div>
 
-  <div class="input-group">
-    <label class="input-label">希望日</label>
-    <input class="input-field" id="apply-date" type="date" onchange="updatePreview()">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div class="input-group">
+      <label class="input-label">開始日</label>
+      <input class="input-field" id="apply-date-from" type="date" onchange="updatePreview()">
+    </div>
+    <div class="input-group">
+      <label class="input-label">終了日</label>
+      <input class="input-field" id="apply-date-to" type="date" onchange="updatePreview()">
+    </div>
   </div>
+  <div style="font-size:12px;color:var(--text-hint);margin-top:-8px;margin-bottom:12px;">1日のみの場合は開始日と終了日を同じ日にしてください</div>
 
   <div class="input-group">
     <label class="input-label">備考（任意）</label>
@@ -493,10 +500,12 @@ function renderHome() {
 }
 
 function updatePreview() {
-  const days  = 1;
-  const date  = document.getElementById('apply-date').value;
-  if (!date) { hide('remain-preview'); return; }
+  const from = document.getElementById('apply-date-from').value;
+  const to   = document.getElementById('apply-date-to').value;
+  if (!from || !to) { hide('remain-preview'); return; }
+  if (from > to) { hide('remain-preview'); return; }
 
+  const days = calcWorkDays(from, to);
   const carryoverRemain = emp.carryover - emp.usedFromCarryover;
   const currentRemain   = emp.granted   - emp.usedFromCurrent;
   const totalRemain     = carryoverRemain + currentRemain;
@@ -508,8 +517,15 @@ function updatePreview() {
   prev.classList.remove('hidden', 'warn-preview');
   if (afterRemain < 3) prev.classList.add('warn-preview');
   prev.innerHTML =
-    `申請後の残日数：<strong style="font-size:16px">${afterRemain}日</strong><br>` +
+    `申請日数：<strong style="font-size:16px">${days}日</strong>　申請後の残日数：<strong style="font-size:16px">${afterRemain}日</strong><br>` +
     `（繰越から ${fromCarryover}日 ＋ 当年から ${fromCurrent}日 消化）`;
+}
+
+// 開始日〜終了日の日数を計算（土日を含む全日数）
+function calcWorkDays(from, to) {
+  const f = new Date(from + 'T00:00:00');
+  const t = new Date(to   + 'T00:00:00');
+  return Math.round((t - f) / (1000 * 60 * 60 * 24)) + 1;
 }
 
 function switchTab(tab) {
@@ -522,45 +538,51 @@ function switchTab(tab) {
   } else {
     hide('screen-home'); hide('screen-history');
     show('screen-apply'); hide('screen-success');
-    document.getElementById('apply-date').min = new Date().toISOString().split('T')[0];
+    // 過去日付制限なし
     hide('remain-preview');
   }
 }
 
 async function doApply() {
-  const date = document.getElementById('apply-date').value;
+  const from = document.getElementById('apply-date-from').value;
+  const to   = document.getElementById('apply-date-to').value;
   const memo = document.getElementById('apply-memo').value;
   const err  = document.getElementById('apply-error');
-  if (!date) { err.classList.add('show'); return; }
+  if (!from || !to) { err.textContent = '日付を正しく入力してください。'; err.classList.add('show'); return; }
+  if (from > to) { err.textContent = '終了日は開始日以降の日付を選択してください。'; err.classList.add('show'); return; }
   err.classList.remove('show');
 
+  const days = calcWorkDays(from, to);
   const applyBtn = document.querySelector('#screen-apply .btn-primary');
   applyBtn.textContent = '送信中...'; applyBtn.disabled = true;
 
   try {
-    const result = await gasGet({ action: 'apply', empNo: emp.empNo, date, memo, days: 1 });
+    const result = await gasGet({ action: 'apply', empNo: emp.empNo, date: from, dateTo: to, memo, days });
     if (!result.success) throw new Error(result.error || '申請に失敗しました');
 
     // ローカルデータも更新
-    const fromCarryover = Math.min(1, emp.carryover - emp.usedFromCarryover);
-    const fromCurrent   = 1 - fromCarryover;
+    const fromCarryover = Math.min(days, emp.carryover - emp.usedFromCarryover);
+    const fromCurrent   = days - fromCarryover;
     emp.usedFromCarryover += fromCarryover;
     emp.usedFromCurrent   += fromCurrent;
     const fromLabel = fromCarryover > 0 && fromCurrent === 0 ? '繰越'
                     : fromCarryover === 0 ? '当年' : '繰越・当年';
-    emp.history.push({ date, type: '全日休暇', days: 1, from: fromLabel, status: 'pending' });
+    const dateLabel = from === to ? from : from + ' 〜 ' + to;
+    emp.history.push({ date: dateLabel, type: '全日休暇', days, from: fromLabel, status: 'pending' });
 
     const totalRemain = (emp.carryover - emp.usedFromCarryover) + (emp.granted - emp.usedFromCurrent);
+    const dateDisp = from === to ? fmtDate(from) : fmtDate(from) + '〜' + fmtDate(to);
     document.getElementById('success-detail').innerHTML =
-      `申請日：<strong>${fmtDate(date)}</strong><br>` +
-      `種別：<strong>全日休暇</strong><br>` +
+      `申請期間：<strong>${dateDisp}</strong><br>` +
+      `申請日数：<strong>${days}日</strong><br>` +
       `消化：<strong>繰越から${fromCarryover}日 ＋ 当年から${fromCurrent}日</strong><br>` +
       (memo ? `備考：<strong>${memo}</strong><br>` : '') +
       `申請後残日数：<strong>${totalRemain}日</strong>`;
 
     hide('screen-apply'); show('screen-success');
     document.getElementById('tab-apply').classList.remove('active');
-    document.getElementById('apply-date').value = '';
+    document.getElementById('apply-date-from').value = '';
+    document.getElementById('apply-date-to').value   = '';
     document.getElementById('apply-memo').value = '';
   } catch(e) {
     err.textContent = '送信に失敗しました。時間をおいて再度お試しください。';
@@ -577,6 +599,8 @@ function doLogout() {
   show('screen-login');
   document.getElementById('empno-input').value = '';
   document.getElementById('dob-input').value   = '';
+  document.getElementById('apply-date-from').value = '';
+  document.getElementById('apply-date-to').value   = '';
 }
 
 function fmtDate(s) {
