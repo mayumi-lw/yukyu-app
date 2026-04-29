@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>有休管理システム</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F3EE;
+    --card: #FFFFFF;
+    --accent: #2D5016;
+    --accent-light: #4A7A28;
+    --accent-pale: #EAF3DE;
+    --warn: #BA7517;
+    --warn-pale: #FAEEDA;
+    --danger: #993C1D;
+    --danger-pale: #FAECE7;
+    --text: #1A1A18;
+    --text-sub: #5F5E5A;
+    --text-hint: #888780;
+    --border: rgba(0,0,0,0.1);
+    --radius: 16px;
+    --font: 'Noto Sans JP', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+  }
+  .header {
+    width: 100%; max-width: 480px;
+    margin-bottom: 32px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+  }
+  .header-title { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-hint); font-family: var(--mono); }
+  .header-logo { font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
+  .card {
+    background: var(--card); border-radius: var(--radius);
+    padding: 28px 24px; width: 100%; max-width: 480px;
+    border: 1px solid var(--border); margin-bottom: 16px;
+  }
+  .login-label { font-size: 13px; color: var(--text-sub); margin-bottom: 8px; font-weight: 500; }
+  .rule-box {
+    background: var(--accent-pale); border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0; padding: 12px 14px;
+    font-size: 13px; color: var(--text-sub); line-height: 1.7;
+    margin-bottom: 20px;
+  }
+  .rule-box strong { color: var(--accent); }
+  .rule-title { font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 4px; letter-spacing: 0.04em; }
+  .notice-box {
+    background: var(--warn-pale); border-left: 3px solid var(--warn);
+    border-radius: 0 8px 8px 0; padding: 10px 14px;
+    font-size: 12px; color: var(--warn); line-height: 1.7;
+    margin-bottom: 16px;
+  }
+  .login-title { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 6px; letter-spacing: -0.02em; }
+  .login-sub { font-size: 13px; color: var(--text-hint); margin-bottom: 28px; line-height: 1.6; }
+  .input-group { margin-bottom: 16px; }
+  .input-label { font-size: 12px; color: var(--text-sub); margin-bottom: 6px; font-weight: 500; display: block; }
+  .input-field {
+    width: 100%; height: 48px; border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 0 16px; font-size: 15px;
+    font-family: var(--mono); letter-spacing: 0.08em; color: var(--text);
+    background: var(--bg); transition: border-color 0.2s; outline: none; appearance: none;
+  }
+  .input-field:focus { border-color: var(--accent); background: #fff; }
+  .btn {
+    width: 100%; height: 52px; border-radius: 12px; border: none;
+    font-family: var(--font); font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-light); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-secondary { background: var(--bg); color: var(--text-sub); border: 1.5px solid var(--border); margin-top: 10px; }
+  .btn-secondary:hover { background: #eee; }
+  .error-msg {
+    background: var(--danger-pale); color: var(--danger);
+    border-radius: 8px; padding: 10px 14px; font-size: 13px;
+    margin-bottom: 16px; display: none;
+  }
+  .error-msg.show { display: block; }
+
+  .employee-name { font-size: 13px; color: var(--text-hint); margin-bottom: 4px; }
+  .dashboard-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 20px; }
+
+  /* サマリー上段：繰越・当年 */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  /* サマリー下段：残日数のみ */
+  .summary-grid-bottom {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .summary-item {
+    background: var(--bg); border-radius: 12px;
+    padding: 14px 12px; text-align: center;
+  }
+  .summary-item.highlight { background: var(--accent-pale); }
+  .summary-item.carryover { background: #EDF4FB; }
+  .summary-num {
+    font-size: 26px; font-weight: 700; font-family: var(--mono);
+    color: var(--accent); line-height: 1; margin-bottom: 4px;
+    display: flex; align-items: baseline; justify-content: center; gap: 2px;
+  }
+  .summary-num .unit {
+    font-size: 14px; font-weight: 500; font-family: var(--font);
+  }
+  .summary-item:not(.highlight):not(.carryover) .summary-num { color: var(--text); }
+  .summary-item.carryover .summary-num { color: #185FA5; }
+  .summary-label { font-size: 11px; color: var(--text-hint); font-weight: 500; }
+
+  /* 消化内訳 */
+  .usage-breakdown {
+    background: var(--bg); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 16px; font-size: 12px;
+    color: var(--text-sub); line-height: 1.9;
+  }
+  .usage-breakdown span { font-family: var(--mono); font-weight: 500; color: var(--text); }
+
+  .bar-wrap { margin: 0 0 20px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-hint); margin-bottom: 6px; }
+  .bar-bg { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; display: flex; }
+  .bar-carryover { height: 100%; background: #378ADD; transition: width 0.6s ease; }
+  .bar-current { height: 100%; background: var(--accent); transition: width 0.6s ease; }
+
+  .info-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-key { color: var(--text-sub); }
+  .info-val { font-weight: 500; font-family: var(--mono); font-size: 13px; }
+
+  .section-title { font-size: 13px; font-weight: 700; color: var(--text-sub); letter-spacing: 0.04em; margin-bottom: 12px; }
+  .history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-date { font-family: var(--mono); color: var(--text); }
+  .badge { font-size: 11px; padding: 3px 10px; border-radius: 99px; font-weight: 500; }
+  .badge-pending { background: var(--warn-pale); color: var(--warn); }
+  .badge-approved { background: var(--accent-pale); color: var(--accent); }
+
+  .form-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .form-sub { font-size: 13px; color: var(--text-hint); margin-bottom: 24px; line-height: 1.6; }
+
+  .remain-preview {
+    background: var(--accent-pale); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 16px; font-size: 13px;
+    color: var(--accent); line-height: 1.8;
+  }
+  .remain-preview.warn-preview { background: var(--warn-pale); color: var(--warn); }
+
+  .success-icon {
+    width: 56px; height: 56px; background: var(--accent-pale);
+    border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; margin: 0 auto 16px; font-size: 24px;
+  }
+  .success-title { font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 8px; }
+  .success-sub { font-size: 13px; color: var(--text-hint); text-align: center; line-height: 1.7; margin-bottom: 24px; }
+  .success-detail {
+    background: var(--bg); border-radius: 12px; padding: 16px;
+    margin-bottom: 24px; font-size: 13px; line-height: 1.9; color: var(--text-sub);
+  }
+  .success-detail strong { color: var(--text); font-family: var(--mono); }
+
+  .nav-tabs { display: flex; gap: 8px; margin-bottom: 4px; width: 100%; max-width: 480px; }
+  .nav-tab {
+    flex: 1; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border);
+    background: var(--card); font-family: var(--font); font-size: 13px;
+    font-weight: 500; color: var(--text-sub); cursor: pointer; transition: all 0.15s; text-align: center;
+  }
+  .nav-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .demo-note {
+    max-width: 480px; width: 100%;
+    background: var(--warn-pale); border: 1px solid rgba(186,117,23,0.2);
+    border-radius: 10px; padding: 12px 16px; font-size: 12px;
+    color: var(--warn); line-height: 1.6; margin-bottom: 16px;
+  }
+  .hidden { display: none !important; }
+  .fade-in { animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* スマホ対応 */
+  @media (max-width: 520px) {
+    body { padding: 16px 12px 48px; }
+    .card { padding: 20px 16px; border-radius: 14px; }
+    .login-title { font-size: 19px; }
+    .dashboard-title { font-size: 18px; }
+    .summary-num { font-size: 22px; }
+    .summary-item { padding: 12px 8px; }
+    .nav-tab { font-size: 12px; padding: 9px 6px; }
+    .btn { height: 50px; font-size: 14px; }
+    .info-row { font-size: 13px; }
+    .info-val { font-size: 12px; }
+    /* iOSでinput/selectをタップしたときのズーム防止（16px以上必須） */
+    .input-field { font-size: 16px; }
+    select.input-field { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-title">有休管理システム</span>
+  <span class="header-logo">有 休</span>
+</div>
+
+<!-- ログイン -->
+<div class="card fade-in" id="screen-login">
+  <div class="login-label">ようこそ</div>
+  <div class="login-title">有休を確認・申請する</div>
+  <div class="login-sub">社員番号と生年月日を入力してください。</div>
+  <div class="rule-box">
+    <div class="rule-title">📋 申請ルール</div>
+    前月分の有給休暇は<strong>翌月5日まで</strong>に申請してください。
+  </div>
+  <div class="error-msg" id="login-error">社員番号または生年月日が正しくありません。</div>
+  <div class="input-group">
+    <label class="input-label">社員番号</label>
+    <input class="input-field" id="empno-input" type="tel" placeholder="例：1001">
+  </div>
+  <div class="input-group">
+    <label class="input-label">生年月日</label>
+    <input class="input-field" id="dob-input" type="date">
+  </div>
+  <button class="btn btn-primary" id="login-btn" onclick="doLogin()">確認する</button>
+</div>
+
+<!-- ナビ -->
+<div class="nav-tabs hidden" id="nav-tabs">
+  <button class="nav-tab active" id="tab-home" onclick="switchTab('home')">残日数確認</button>
+  <button class="nav-tab" id="tab-apply" onclick="switchTab('apply')">有休を申請</button>
+</div>
+
+<!-- ダッシュボード -->
+<div class="card hidden fade-in" id="screen-home">
+  <div class="employee-name" id="emp-name-label"></div>
+  <div class="dashboard-title">有休残日数</div>
+
+  <div class="summary-grid">
+    <div class="summary-item carryover">
+      <div class="summary-num" id="sum-carryover"><span id="sv-carryover"></span><span class="unit">日</span></div>
+      <div class="summary-label">前年繰越日数</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-num" id="sum-granted"><span id="sv-granted"></span><span class="unit">日</span></div>
+      <div class="summary-label">当年付与日数</div>
+    </div>
+  </div>
+  <div class="summary-grid-bottom">
+    <div class="summary-item highlight">
+      <div class="summary-num"><span id="sv-remain"></span><span class="unit">日</span></div>
+      <div class="summary-label">現時点の残日数</div>
+    </div>
+  </div>
+
+  <div class="usage-breakdown" id="usage-breakdown"></div>
+  <div class="notice-box">⚠️ 前年繰越日数は次回付与日に持ち越すことができません。</div>
+
+  <div class="bar-wrap">
+    <div class="bar-label">
+      <span>残日数の内訳</span>
+      <span id="bar-legend"></span>
+    </div>
+    <div class="bar-bg">
+      <div class="bar-carryover" id="bar-carryover"></div>
+      <div class="bar-current" id="bar-current"></div>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:6px;font-size:11px;color:var(--text-hint)">
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:#378ADD;border-radius:2px"></span>繰越残</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px"></span>当年残</span>
+    </div>
+  </div>
+
+  <div class="info-row">
+    <span class="info-key">当年付与日</span>
+    <span class="info-val" id="info-grant-date"></span>
+  </div>
+  <div class="info-row">
+    <span class="info-key">有効期限</span>
+    <span class="info-val" id="info-expire-date"></span>
+  </div>
+  <div class="info-row">
+    <span class="info-key">次回付与予定日</span>
+    <span class="info-val" id="info-next-date"></span>
+  </div>
+  <div class="info-row">
+    <span class="info-key">次回付与予定日数</span>
+    <span class="info-val" id="info-next-days"></span>
+  </div>
+  <div class="info-row">
+    <span class="info-key">算定基準（実績勤務日数）</span>
+    <span class="info-val" id="info-next-basis"></span>
+  </div>
+</div>
+
+<!-- 申請履歴 -->
+<div class="card hidden fade-in" id="screen-history">
+  <div class="section-title">申請履歴</div>
+  <div id="history-list"></div>
+</div>
+
+<!-- 申請フォーム -->
+<div class="card hidden fade-in" id="screen-apply">
+  <div class="form-title">有休を申請する</div>
+  <div class="form-sub">希望日を入力してください。毎月のクリニック訪問時に院長に報告し承認をして頂きます。</div>
+
+  <div class="input-group">
+    <label class="input-label">申請種別</label>
+    <div class="input-field" style="display:flex;align-items:center;background:var(--bg);color:var(--text-hint);cursor:default;">全日休暇（1日）</div>
+    <input type="hidden" id="apply-type" value="1">
+  </div>
+
+  <div class="input-group">
+    <label class="input-label">希望日</label>
+    <input class="input-field" id="apply-date" type="date" onchange="updatePreview()">
+  </div>
+
+  <div class="input-group">
+    <label class="input-label">備考（任意）</label>
+    <input class="input-field" id="apply-memo" type="text" placeholder="">
+  </div>
+
+  <div class="remain-preview hidden" id="remain-preview"></div>
+  <div class="error-msg" id="apply-error">日付を正しく入力してください。</div>
+  <button class="btn btn-primary" onclick="doApply()">申請する</button>
+  <button class="btn btn-secondary" onclick="switchTab('home')">キャンセル</button>
+</div>
+
+<!-- 完了 -->
+<div class="card hidden fade-in" id="screen-success">
+  <div class="success-icon">✓</div>
+  <div class="success-title">申請を受け付けました</div>
+  <div class="success-sub">担当の社労士事務所が確認します。<br>承認は毎月の訪問時に行われます。</div>
+  <div class="success-detail" id="success-detail"></div>
+  <button class="btn btn-primary" onclick="goHome()">残日数に戻る</button>
+</div>
+
+<!-- ログアウト -->
+<div class="hidden" id="logout-wrap" style="width:100%;max-width:480px;margin-top:4px;">
+  <button class="btn btn-secondary" style="height:40px;font-size:13px;" onclick="doLogout()">ログアウト</button>
+</div>
+
+<script>
+// ========== 比例付与テーブル（添付表準拠） ==========
+// 1年間の所定労働日数で判定
+// 継続勤務年数：0.5 / 1.5 / 2.5 / 3.5 / 4.5 / 5.5 / 6.5以上
+function calcGrantDays(actualDays, yearsOfService) {
+  // 所定労働日数の区分
+  let table;
+  if (actualDays >= 169 && actualDays <= 216) {
+    table = [7, 8, 9, 10, 12, 13, 15];       // 4日
+  } else if (actualDays >= 121 && actualDays <= 168) {
+    table = [5, 6, 6, 8, 9, 10, 11];          // 3日
+  } else if (actualDays >= 73 && actualDays <= 120) {
+    table = [3, 4, 4, 5, 6, 6, 7];            // 2日
+  } else if (actualDays >= 48 && actualDays <= 72) {
+    table = [1, 2, 2, 2, 3, 3, 3];            // 1日
+  } else {
+    // 217日以上：通常付与（10〜20日）
+    const normal = [10, 11, 12, 14, 16, 18, 20];
+    const idx = Math.min(Math.floor(yearsOfService), 6);
+    return { days: normal[idx], label: '通常付与' };
+  }
+  // 勤続年数インデックス（0.5=0, 1.5=1, 2.5=2, 3.5=3, 4.5=4, 5.5=5, 6.5以上=6）
+  let idx;
+  if (yearsOfService < 1)      idx = 0;
+  else if (yearsOfService < 2) idx = 1;
+  else if (yearsOfService < 3) idx = 2;
+  else if (yearsOfService < 4) idx = 3;
+  else if (yearsOfService < 5) idx = 4;
+  else if (yearsOfService < 6) idx = 5;
+  else                          idx = 6;
+  return { days: table[idx], label: '比例付与' };
+}
+
+// ========== デモデータ ==========
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzBO3pgv8GHFJdrVQlRqV_FHEOkMQV2w6wxbhuCTAS9KsJWhps7xXXcm7EZZd9mn9E/exec';
+
+let emp = null;
+
+async function gasGet(params) {
+  const url = GAS_URL + '?' + new URLSearchParams(params).toString();
+  const res = await fetch(url);
+  return res.json();
+}
+
+function setLoading(loading) {
+  const btn = document.getElementById('login-btn');
+  btn.textContent = loading ? '確認中...' : '確認する';
+  btn.disabled = loading;
+}
+
+async function doLogin() {
+  const no  = document.getElementById('empno-input').value.trim();
+  const dob = document.getElementById('dob-input').value;
+  const err = document.getElementById('login-error');
+  if (!no || !dob) { err.classList.add('show'); return; }
+  err.classList.remove('show');
+  setLoading(true);
+  try {
+    const data = await gasGet({ action: 'login', empNo: no, dob });
+    if (!data.success) { err.classList.add('show'); setLoading(false); return; }
+    emp = {
+      empNo:              no,
+      name:               data.name,
+      grantDate:          data.grantDate,
+      expireDate:         data.expireDate,
+      granted:            Number(data.granted),
+      carryover:          Number(data.carryover),
+      usedFromCarryover:  Number(data.usedFromCarryover),
+      usedFromCurrent:    Number(data.usedFromCurrent),
+      actualDaysLastYear: Number(data.actualDays),
+      yearsOfService:     Number(data.yearsOfService),
+      nextDate:           data.nextDate,
+      history:            data.history || []
+    };
+    hide('screen-login');
+    show('nav-tabs'); show('logout-wrap');
+    renderHome(); switchTab('home');
+  } catch(e) {
+    err.textContent = '通信エラーが発生しました。時間をおいて再度お試しください。';
+    err.classList.add('show');
+  }
+  setLoading(false);
+}
+
+function renderHome() {
+  const carryoverRemain = emp.carryover - emp.usedFromCarryover;
+  const currentRemain   = emp.granted   - emp.usedFromCurrent;
+  const totalRemain     = carryoverRemain + currentRemain;
+  const total           = emp.carryover + emp.granted;
+
+  document.getElementById('emp-name-label').textContent = emp.name + ' さん';
+  document.getElementById('sv-carryover').textContent = emp.carryover;
+  document.getElementById('sv-granted').textContent   = emp.granted;
+  document.getElementById('sv-remain').textContent    = totalRemain;
+
+  document.getElementById('usage-breakdown').innerHTML =
+    `消化順：繰越分 → 当年分<br>` +
+    `繰越残 <span>${carryoverRemain}日</span> ＋ 当年残 <span>${currentRemain}日</span> ＝ 合計残 <span>${totalRemain}日</span>`;
+
+  const carryoverPct = total > 0 ? (carryoverRemain / total * 100) : 0;
+  const currentPct   = total > 0 ? (currentRemain   / total * 100) : 0;
+  document.getElementById('bar-carryover').style.width = carryoverPct + '%';
+  document.getElementById('bar-current').style.width   = currentPct   + '%';
+  document.getElementById('bar-legend').textContent =
+    `繰越残${carryoverRemain}日 ＋ 当年残${currentRemain}日`;
+
+  document.getElementById('info-grant-date').textContent  = fmtDate(emp.grantDate);
+  document.getElementById('info-expire-date').textContent = fmtDate(emp.expireDate);
+  document.getElementById('info-next-date').textContent   = fmtDate(emp.nextDate);
+
+  const result = calcGrantDays(emp.actualDaysLastYear, emp.yearsOfService + 1);
+  document.getElementById('info-next-days').textContent  = result.days + '日（' + result.label + '）';
+  document.getElementById('info-next-basis').textContent = emp.actualDaysLastYear + '日';
+
+  const list = document.getElementById('history-list');
+  if (!emp.history.length) {
+    list.innerHTML = '<div style="font-size:13px;color:var(--text-hint);padding:10px 0">申請履歴がありません</div>';
+  } else {
+    list.innerHTML = emp.history.slice().reverse().map(h => `
+      <div class="history-item">
+        <div>
+          <div class="history-date">${fmtDate(h.date)}</div>
+          <div style="font-size:11px;color:var(--text-hint);margin-top:2px">全日休暇（1日消化）</div>
+        </div>
+        <span class="badge ${h.status === 'approved' ? 'badge-approved' : 'badge-pending'}">
+          ${h.status === 'approved' ? '承認済み' : '申請中'}
+        </span>
+      </div>`).join('');
+  }
+}
+
+function updatePreview() {
+  const days  = 1;
+  const date  = document.getElementById('apply-date').value;
+  if (!date) { hide('remain-preview'); return; }
+
+  const carryoverRemain = emp.carryover - emp.usedFromCarryover;
+  const currentRemain   = emp.granted   - emp.usedFromCurrent;
+  const totalRemain     = carryoverRemain + currentRemain;
+  const afterRemain     = totalRemain - days;
+  const fromCarryover   = Math.min(days, carryoverRemain);
+  const fromCurrent     = days - fromCarryover;
+
+  const prev = document.getElementById('remain-preview');
+  prev.classList.remove('hidden', 'warn-preview');
+  if (afterRemain < 3) prev.classList.add('warn-preview');
+  prev.innerHTML =
+    `申請後の残日数：<strong style="font-size:16px">${afterRemain}日</strong><br>` +
+    `（繰越から ${fromCarryover}日 ＋ 当年から ${fromCurrent}日 消化）`;
+}
+
+function switchTab(tab) {
+  ['home','apply'].forEach(t =>
+    document.getElementById('tab-'+t)?.classList.toggle('active', t===tab)
+  );
+  if (tab === 'home') {
+    show('screen-home'); show('screen-history');
+    hide('screen-apply'); hide('screen-success');
+  } else {
+    hide('screen-home'); hide('screen-history');
+    show('screen-apply'); hide('screen-success');
+    document.getElementById('apply-date').min = new Date().toISOString().split('T')[0];
+    hide('remain-preview');
+  }
+}
+
+async function doApply() {
+  const date = document.getElementById('apply-date').value;
+  const memo = document.getElementById('apply-memo').value;
+  const err  = document.getElementById('apply-error');
+  if (!date) { err.classList.add('show'); return; }
+  err.classList.remove('show');
+
+  const applyBtn = document.querySelector('#screen-apply .btn-primary');
+  applyBtn.textContent = '送信中...'; applyBtn.disabled = true;
+
+  try {
+    const result = await gasGet({ action: 'apply', empNo: emp.empNo, date, memo, days: 1 });
+    if (!result.success) throw new Error(result.error || '申請に失敗しました');
+
+    // ローカルデータも更新
+    const fromCarryover = Math.min(1, emp.carryover - emp.usedFromCarryover);
+    const fromCurrent   = 1 - fromCarryover;
+    emp.usedFromCarryover += fromCarryover;
+    emp.usedFromCurrent   += fromCurrent;
+    const fromLabel = fromCarryover > 0 && fromCurrent === 0 ? '繰越'
+                    : fromCarryover === 0 ? '当年' : '繰越・当年';
+    emp.history.push({ date, type: '全日休暇', days: 1, from: fromLabel, status: 'pending' });
+
+    const totalRemain = (emp.carryover - emp.usedFromCarryover) + (emp.granted - emp.usedFromCurrent);
+    document.getElementById('success-detail').innerHTML =
+      `申請日：<strong>${fmtDate(date)}</strong><br>` +
+      `種別：<strong>全日休暇</strong><br>` +
+      `消化：<strong>繰越から${fromCarryover}日 ＋ 当年から${fromCurrent}日</strong><br>` +
+      (memo ? `備考：<strong>${memo}</strong><br>` : '') +
+      `申請後残日数：<strong>${totalRemain}日</strong>`;
+
+    hide('screen-apply'); show('screen-success');
+    document.getElementById('tab-apply').classList.remove('active');
+    document.getElementById('apply-date').value = '';
+    document.getElementById('apply-memo').value = '';
+  } catch(e) {
+    err.textContent = '送信に失敗しました。時間をおいて再度お試しください。';
+    err.classList.add('show');
+  }
+  applyBtn.textContent = '申請する'; applyBtn.disabled = false;
+}
+
+function goHome() { hide('screen-success'); renderHome(); switchTab('home'); }
+
+function doLogout() {
+  emp = null;
+  ['screen-home','screen-history','screen-apply','screen-success','logout-wrap','nav-tabs'].forEach(hide);
+  show('screen-login');
+  document.getElementById('empno-input').value = '';
+  document.getElementById('dob-input').value   = '';
+}
+
+function fmtDate(s) {
+  if (!s) return '';
+  // スラッシュ区切り（2025/4/1 や 2025/04/01）に対応
+  const slash = String(s).trim().replace(/-/g, '/');
+  const parts = slash.split('/');
+  if (parts.length === 3) {
+    const y = parts[0];
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    if (!isNaN(m) && !isNaN(d)) return `${y}年${m}月${d}日`;
+  }
+  // ISO形式フォールバック
+  const dt = new Date(s + (String(s).length === 10 ? 'T00:00:00' : ''));
+  if (!isNaN(dt)) return `${dt.getFullYear()}年${dt.getMonth()+1}月${dt.getDate()}日`;
+  return s;
+}
+function show(id) { document.getElementById(id)?.classList.remove('hidden'); }
+function hide(id) { document.getElementById(id)?.classList.add('hidden'); }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('screen-login').classList.contains('hidden')) doLogin();
+});
+</script>
+</body>
+</html>
